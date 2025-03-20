@@ -1,6 +1,10 @@
 {
     "C_Cpp.default.compilerPath": "C:/msys64/ucrt64/bin/g++.exe",
     "files.associations": {
-        "mutex": "cpp"
+        "mutex": "cpp",
+        "ostream": "cpp",
+        "iostream": "cpp",
+        "atomic": "cpp",
+        "condition_variable": "cpp"
     }
 }
