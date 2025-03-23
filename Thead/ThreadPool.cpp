@@ -12,7 +12,24 @@ using namespace std;
 //adding a instance pattern to ThreadPool.
 
 static once_flag flag;
-mutex mtx;
+
+// 封装在 GetTime 函数中
+string GetTime() {
+    // 使用 chrono 获取当前时间点
+    auto now = chrono::system_clock::now();
+    
+    // 将时间点转换为 time_t
+    time_t now_time_t = chrono::system_clock::to_time_t(now);
+    
+    // 将 time_t 转换为本地时间
+    tm* local_time = localtime(&now_time_t);
+    
+    // 格式化时间为字符串
+    char buffer[80];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", local_time);
+    
+    return string(buffer);
+}
 
 class ThreadPool{
 public:
@@ -29,11 +46,13 @@ public:
         for(auto& t : threads){//thread can't be copied.
             t.join();
         }
+        cout<<GetTime()<<endl;
     }
 
-    template<class F, class... Args>
-    void enqueue(F &&f, Args && ...args){
-        function<void()> task = bind(forward<F>(f), forward<Args>(args)...);
+    //add task to the tasks queue.
+    template<class F,class... Args>
+    void enqueue(F&& f,Args&&... args){
+        function<void()> task = bind(forward<F>(f),forward<Args>(args)...);
         {
             unique_lock<mutex> lock(mtx);
             tasks.emplace(move(task));
@@ -64,15 +83,15 @@ private:
 
     ThreadPool(int numThreads):stop(false){
         for(int i = 0; i < numThreads; i++){
-            threads.emplace_back([this]{
-                for(;;){
+            //“this” is passed as a hidden argument to the function.
+            threads.emplace_back([this](){
+                //该线程的任务是不断从任务队列中取任务去执行
+                while(true){
                     function<void()> task;
                     {
                         unique_lock<mutex> lock(mtx);
                         cv.wait(lock,[this]{return stop || !tasks.empty();});
-                        if(stop && tasks.empty()){
-                            return;
-                        }
+                        if(stop && tasks.empty()) return ;
                         task = move(tasks.front());
                         tasks.pop();
                     }
@@ -91,23 +110,7 @@ mutex mtx_io;
 #include <chrono>
 #include <ctime>
 
-// 封装在 GetTime 函数中
-string GetTime() {
-    // 使用 chrono 获取当前时间点
-    auto now = chrono::system_clock::now();
-    
-    // 将时间点转换为 time_t
-    time_t now_time_t = chrono::system_clock::to_time_t(now);
-    
-    // 将 time_t 转换为本地时间
-    tm* local_time = localtime(&now_time_t);
-    
-    // 格式化时间为字符串
-    char buffer[80];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", local_time);
-    
-    return string(buffer);
-}
+
 
 
 
@@ -133,6 +136,5 @@ int main(){
         },i);
     }
     tp.~ThreadPool();
-    cout<<GetTime()<<endl;
     return 0;
 }
